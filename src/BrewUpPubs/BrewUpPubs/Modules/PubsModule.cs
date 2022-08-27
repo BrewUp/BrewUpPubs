@@ -21,7 +21,7 @@ public class PubsModule : IModule
     {
 
         endpoints.MapGet($"{BaseEndpointUrl}/beers", PubsEndpoints.HandleGetBeers)
-            .WithTags("Pubs");
+            .WithTags("Beers");
 
         return endpoints;
     }

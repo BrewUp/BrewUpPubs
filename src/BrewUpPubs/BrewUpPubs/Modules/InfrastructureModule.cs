@@ -2,7 +2,6 @@
 using BrewUpPubs.Modules.Pubs.Consumers.DomainEvents;
 using BrewUpPubs.Modules.Pubs.Shared.Events;
 using BrewUpPubs.ReadModel.MongoDb;
-using BrewUpPubs.Shared;
 using BrewUpPubs.Shared.Configuration;
 using Muflone.Factories;
 using Muflone.Transport.Azure;
@@ -20,7 +19,7 @@ public class InfrastructureModule : IModule
     {
         builder.Services.AddPubsModule();
 
-        builder.Services.AddEventStore(builder.Configuration.GetSection("BrewUp:EventStoreSettings").Get<EventStoreSettings>());
+        //builder.Services.AddEventStore(builder.Configuration.GetSection("BrewUp:EventStoreSettings").Get<EventStoreSettings>());
 
         var serviceProvider = builder.Services.BuildServiceProvider();
         var loggerFactory = serviceProvider.GetService<ILoggerFactory>();

@@ -7,8 +7,9 @@ public static class PubsEndpoints
 {
     public static async Task<IResult> HandleGetBeers(IBeerService beerService)
     {
-        var beers = await beerService.GetBeersAsync();
+        var beersResult = await beerService.GetBeersAsync();
 
-        return Results.Ok(beers);
+        return beersResult.Match(Results.Ok,
+            _ => Results.BadRequest("An error occurred processing your request"));
     }
 }
