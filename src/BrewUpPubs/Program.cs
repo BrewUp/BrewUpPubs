@@ -15,7 +15,7 @@ app.UseAuthorization();
 // Register endpoints
 app.MapEndpoints();
 
-// Configure the HTTP request pipeline.
+// Show documentation always.
 app.UseSwagger(s =>
 {
     s.RouteTemplate = "documentation/{documentName}/documentation.json";
