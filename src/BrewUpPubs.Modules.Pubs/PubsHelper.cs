@@ -2,6 +2,7 @@
 using BrewUpPubs.Modules.Pubs.Concretes;
 using BrewUpPubs.Modules.Pubs.EventsHandlers;
 using BrewUpPubs.Modules.Pubs.Factories;
+using BrewUpPubs.Modules.Pubs.Hubs;
 using BrewUpPubs.Modules.Pubs.Shared.Events;
 using Microsoft.Extensions.DependencyInjection;
 using Muflone.Factories;
@@ -14,6 +15,7 @@ public static class PubsHelper
     public static IServiceCollection AddPubsModule(this IServiceCollection services)
     {
         services.AddScoped<IBeerService, BeerService>();
+        services.AddSingleton<PubsHub>();
 
         #region DomainEventHandler
         services.AddScoped<IDomainEventHandlerFactoryAsync, DomainEventHandlerFactoryAsync>();
