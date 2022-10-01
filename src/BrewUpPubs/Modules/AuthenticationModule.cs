@@ -1,51 +1,50 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using BrewUpPubs.Shared.Configuration;
+using Microsoft.AspNetCore.Authentication.AzureAD.UI;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Identity.Web;
 using Microsoft.IdentityModel.Tokens;
 
 namespace BrewUpPubs.Modules
 {
     public class AuthenticationModule : IModule
     {
-        public bool IsEnabled { get; }
-        public int Order { get; }
-
-        public AuthenticationModule()
-        {
-            IsEnabled = true;
-            Order = 0;
-        }
+        public bool IsEnabled => true;
+        public int Order => 0;
 
         public IServiceCollection RegisterModule(WebApplicationBuilder builder)
         {
-            builder.Services.AddAuthentication(sharedOptions =>
+            var tokenParameters = new TokenParameters();
+            builder.Configuration.GetSection("BrewUp:TokenParameters").Bind(tokenParameters);
+
+            builder.Services.AddAuthentication(AzureADDefaults.JwtBearerAuthenticationScheme)
+                .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
+
+            builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
             {
-                sharedOptions.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                sharedOptions.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-            }).AddJwtBearer(jwtBearerOptions =>
-            {
-                jwtBearerOptions.Authority = builder.Configuration["BrewUp:TokenAuthentication:Issuer"];
-                jwtBearerOptions.Audience = builder.Configuration["BrewUp:TokenAuthentication:Audience"];
-                jwtBearerOptions.Events = new JwtBearerEvents
+                options.Events.OnTokenValidated = async context =>
                 {
-                    OnAuthenticationFailed = authenticationContext =>
+                    options.MetadataAddress = tokenParameters.MetadataUri;
+
+                    options.TokenValidationParameters.NameClaimType = "PubsApi";
+
+                    options.TokenValidationParameters = new TokenValidationParameters
                     {
-                        if (authenticationContext.Exception.GetType() == typeof(SecurityTokenExpiredException))
-                            authenticationContext.Response.Headers.Add("Is-Token-Expired", "true");
-
-                        authenticationContext.NoResult();
-
-                        authenticationContext.Response.StatusCode = 500;
-                        authenticationContext.Response.ContentType = "text/plain";
-
-                        return authenticationContext.Response.WriteAsync(
-                            $"An error occurred processing your authentication. Details: {authenticationContext.Exception}");
-                    }
+                        ValidIssuers = new List<string>(),
+                        ValidAudiences = new List<string>(),
+                        // The signing key must match!
+                        ValidateIssuerSigningKey = false,
+                        // Validate the token expiry
+                        ValidateLifetime = true,
+                    };
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnTokenValidated = HandleTokenValidated,
+                        OnChallenge = HandleChallenge
+                    };
                 };
             });
 
-            builder.Services.AddAuthorization(options =>
-            {
-                options.AddPolicy("Administrators", policy => policy.RequireClaim("user_roles", "[Administrator]"));
-            });
+            builder.Services.AddAuthorization();
 
             return builder.Services;
         }
@@ -54,5 +53,55 @@ namespace BrewUpPubs.Modules
         {
             return endpoints;
         }
+
+        #region Helpers
+        private static void SetJwtBearerOptions(JwtBearerOptions options, TokenParameters tokenParameters)
+        {
+            // For check signing key
+            options.RequireHttpsMetadata = true;
+            options.MetadataAddress = tokenParameters.MetadataUri;
+            options.TokenValidationParameters = new TokenValidationParameters
+            {
+                // The signing key must match!
+                ValidateIssuerSigningKey = true,
+                // Validate the token expiry
+                ValidateLifetime = true,
+            };
+            options.Events = new JwtBearerEvents
+            {
+                OnTokenValidated = HandleTokenValidated,
+                OnChallenge = HandleChallenge
+            };
+        }
+
+        private static Task HandleTokenValidated(TokenValidatedContext context)
+        {
+            context.HttpContext.Items["Token"] = context.SecurityToken;
+            return Task.CompletedTask;
+        }
+
+        private static Task HandleChallenge(JwtBearerChallengeContext context)
+        {
+            // Skip the default logic.
+            context.HandleResponse();
+
+            var ex = new Exception(context.ErrorDescription ?? "Unknown error");
+
+            switch (context.AuthenticateFailure)
+            {
+                case null when string.IsNullOrWhiteSpace(context.Request.Headers.Authorization):
+                    ex = new Exception("The token is required");
+                    break;
+                case SecurityTokenExpiredException:
+                    context.Response.Headers.Add("Token-Expired", "true");
+                    break;
+            }
+
+            context.Response.ContentType = "application/json";
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+
+            return context.Response.WriteAsync("An error occurred while checking JWT Token");
+        }
+        #endregion
     }
 }

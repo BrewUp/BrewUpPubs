@@ -23,7 +23,6 @@ public class PubsHub : Hub
 
     public override async Task OnConnectedAsync()
     {
-        _logger.LogInformation($"Clients connected: {_context.Clients.ToString()}");
         await _context.Clients.All.SendAsync("beerProductionStarted", "Welcome");
 
         await base.OnConnectedAsync();
