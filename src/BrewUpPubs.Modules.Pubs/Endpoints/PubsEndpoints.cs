@@ -6,7 +6,6 @@ namespace BrewUpPubs.Modules.Pubs.Endpoints;
 
 public static class PubsEndpoints
 {
-    [Authorize]
     public static async Task<IResult> HandleGetBeers(IBeerService beerService)
     {
         var beersResult = await beerService.GetBeersAsync();
