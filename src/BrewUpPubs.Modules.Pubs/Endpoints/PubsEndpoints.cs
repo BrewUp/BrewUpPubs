@@ -1,5 +1,4 @@
 ﻿using BrewUpPubs.Modules.Pubs.Abstracts;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 
 namespace BrewUpPubs.Modules.Pubs.Endpoints;
