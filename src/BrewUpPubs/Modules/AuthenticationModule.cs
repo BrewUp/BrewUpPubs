@@ -1,7 +1,10 @@
-﻿using BrewUpPubs.Shared.Configuration;
-using Microsoft.AspNetCore.Authentication.AzureAD.UI;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Identity.Web;
+﻿using System.Security.Claims;
+using BrewUpPubs.Shared.Configuration;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.OpenIdConnect;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 
 namespace BrewUpPubs.Modules
@@ -16,35 +19,29 @@ namespace BrewUpPubs.Modules
             var tokenParameters = new TokenParameters();
             builder.Configuration.GetSection("BrewUp:TokenParameters").Bind(tokenParameters);
 
-            builder.Services.AddAuthentication(AzureADDefaults.JwtBearerAuthenticationScheme)
-                .AddMicrosoftIdentityWebApi(builder.Configuration.GetSection("AzureAd"));
-
-            builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
-            {
-                options.Events.OnTokenValidated = async context =>
-                {
-                    options.MetadataAddress = tokenParameters.MetadataUri;
-
-                    options.TokenValidationParameters.NameClaimType = "PubsApi";
-
-                    options.TokenValidationParameters = new TokenValidationParameters
-                    {
-                        ValidIssuers = new List<string>(),
-                        ValidAudiences = new List<string>(),
-                        // The signing key must match!
-                        ValidateIssuerSigningKey = false,
-                        // Validate the token expiry
-                        ValidateLifetime = true,
-                    };
-                    options.Events = new JwtBearerEvents
-                    {
-                        OnTokenValidated = HandleTokenValidated,
-                        OnChallenge = HandleChallenge
-                    };
-                };
-            });
+            builder.Services.AddAuthentication(HandleAuthentication)
+                .AddOpenIdConnect(OpenIdConnectDefaults.AuthenticationScheme, "keycloak",
+                    options => HandleOpenIdConnect(options, tokenParameters));
 
             builder.Services.AddAuthorization();
+            
+            builder.Services.Configure<IdentityOptions>(options =>
+            {
+                // Configure Identity to use the same JWT claims as OpenIddict instead
+                // of the legacy WS-Federation claims it uses by default (ClaimTypes),
+                // which saves you from doing the mapping in your authorization controller.
+                // options.ClaimsIdentity.UserNameClaimType = Claims.Name;
+                // options.ClaimsIdentity.UserIdClaimType = Claims.Subject;
+                // options.ClaimsIdentity.RoleClaimType = Claims.Role;
+                // options.ClaimsIdentity.EmailClaimType = Claims.Email;
+
+                // Note: to require account confirmation before login,
+                // register an email sender service (IEmailSender) and
+                // set options.SignIn.RequireConfirmedAccount to true.
+                //
+                // For more information, visit https://aka.ms/aspaccountconf.
+                options.SignIn.RequireConfirmedAccount = false;
+            });
 
             return builder.Services;
         }
@@ -55,52 +52,47 @@ namespace BrewUpPubs.Modules
         }
 
         #region Helpers
-        private static void SetJwtBearerOptions(JwtBearerOptions options, TokenParameters tokenParameters)
+        private static void HandleAuthentication(AuthenticationOptions options)
         {
-            // For check signing key
-            options.RequireHttpsMetadata = true;
-            options.MetadataAddress = tokenParameters.MetadataUri;
+            options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+            options.DefaultChallengeScheme = OpenIdConnectDefaults.AuthenticationScheme;            
+        }
+        
+        private static void HandleOpenIdConnect(OpenIdConnectOptions options, TokenParameters tokenParameters)
+        {
+            options.SignInScheme = "Identity.External";
+            options.Authority = tokenParameters.ServerRealm;
+            options.ClientId = tokenParameters.ClientId;
+            options.ClientSecret = tokenParameters.ClientSecret;
+            options.MetadataAddress = tokenParameters.Metadata;
+            //Require keycloak to use SSL
+                
+            options.GetClaimsFromUserInfoEndpoint = true;
+            
+            options.CallbackPath = new PathString("/Callback");
+            
+            options.Scope.Clear();
+            options.Scope.Add("openid");
+            options.Scope.Add("profile");
+            
+            options.SaveTokens = true;
+            
+            options.NonceCookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.CorrelationCookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.NonceCookie.SameSite = SameSiteMode.None;
+            options.CorrelationCookie.SameSite = SameSiteMode.None;
+            
+            options.ResponseType = OpenIdConnectResponseType.Code;
+            options.RequireHttpsMetadata = false; //dev
+
             options.TokenValidationParameters = new TokenValidationParameters
             {
-                // The signing key must match!
-                ValidateIssuerSigningKey = true,
-                // Validate the token expiry
-                ValidateLifetime = true,
+                // NameClaimType = "name",
+                // RoleClaimType = ClaimTypes.Role,
+                ValidateIssuer = true,
+                ValidateLifetime = true
             };
-            options.Events = new JwtBearerEvents
-            {
-                OnTokenValidated = HandleTokenValidated,
-                OnChallenge = HandleChallenge
-            };
-        }
-
-        private static Task HandleTokenValidated(TokenValidatedContext context)
-        {
-            context.HttpContext.Items["Token"] = context.SecurityToken;
-            return Task.CompletedTask;
-        }
-
-        private static Task HandleChallenge(JwtBearerChallengeContext context)
-        {
-            // Skip the default logic.
-            context.HandleResponse();
-
-            var ex = new Exception(context.ErrorDescription ?? "Unknown error");
-
-            switch (context.AuthenticateFailure)
-            {
-                case null when string.IsNullOrWhiteSpace(context.Request.Headers.Authorization):
-                    ex = new Exception("The token is required");
-                    break;
-                case SecurityTokenExpiredException:
-                    context.Response.Headers.Add("Token-Expired", "true");
-                    break;
-            }
-
-            context.Response.ContentType = "application/json";
-            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-
-            return context.Response.WriteAsync("An error occurred while checking JWT Token");
         }
         #endregion
     }

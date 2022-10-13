@@ -19,5 +19,8 @@ public class MongoDbSettings
 
 public class TokenParameters
 {
-    public string MetadataUri { get; set; } = string.Empty;
+    public string ServerRealm { get; set; } = string.Empty;
+    public string ClientId { get; set; } = string.Empty;
+    public string ClientSecret { get; set; } = string.Empty;
+    public string Metadata { get; set; } = string.Empty;
 }

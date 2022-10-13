@@ -11,7 +11,8 @@
             {
                 options.AddPolicy("CorsPolicy", corsBuilder =>
                     corsBuilder.AllowAnyMethod()
-                        .AllowAnyOrigin()
+                        .WithOrigins("http://localhost:8080", "http://localhost:8080")
+                        .AllowCredentials()
                         .AllowAnyHeader());
             });
 
