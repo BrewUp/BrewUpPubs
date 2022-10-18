@@ -19,7 +19,6 @@ public class PubsModule : IModule
 
     public IEndpointRouteBuilder MapEndpoints(IEndpointRouteBuilder endpoints)
     {
-
         endpoints.MapGet($"{BaseEndpointUrl}/beers", PubsEndpoints.HandleGetBeers)
             .WithTags("Beers");
 

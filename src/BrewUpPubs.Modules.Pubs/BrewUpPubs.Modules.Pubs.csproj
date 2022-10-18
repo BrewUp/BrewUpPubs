@@ -24,4 +24,10 @@
       <ProjectReference Include="..\BrewUpPubs.ReadModel\BrewUpPubs.ReadModel.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Reference Include="Microsoft.AspNetCore.Authentication.JwtBearer">
+        <HintPath>..\..\..\..\..\.nuget\packages\microsoft.aspnetcore.authentication.jwtbearer\6.0.8\lib\net6.0\Microsoft.AspNetCore.Authentication.JwtBearer.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
 </Project>

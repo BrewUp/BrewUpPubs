@@ -30,7 +30,7 @@ public sealed class SwaggerModule : IModule
     private void SetSwaggerGenOptions(SwaggerGenOptions options)
     {
         options.OperationFilter<SecurityRequirementsOperationFilter>();
-        options.SwaggerDoc("v2", new OpenApiInfo
+        options.SwaggerDoc("v1", new OpenApiInfo
         {
             Title = "BrewUp Pubs Api",
             Version = "v1"
