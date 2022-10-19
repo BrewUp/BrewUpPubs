@@ -9,7 +9,7 @@ public static class PubsEndpoints
 {
     //[Authorize(Policy = "Tempo")]
     [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme,
-        Policy = "Tempo")]
+        Roles = "data_analysis")]
     public static async Task<IResult> HandleGetBeers(IBeerService beerService)
     {
         var beersResult = await beerService.GetBeersAsync();

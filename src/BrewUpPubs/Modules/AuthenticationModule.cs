@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using System.Text.Json;
 using BrewUpPubs.Shared.Configuration;
+using BrewUpPubs.Transformers;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -18,6 +19,8 @@ namespace BrewUpPubs.Modules
         {
             var tokenParameters = new TokenParameters();
             builder.Configuration.GetSection("BrewUp:TokenParameters").Bind(tokenParameters);
+
+            builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformers>();
 
             IdentityModelEventSource.ShowPII = true;
             builder.Services.AddAuthentication(HandleJwtAuthenticationOptions)
@@ -50,6 +53,8 @@ namespace BrewUpPubs.Modules
             {
                 // The signing key must match!
                 ValidateIssuerSigningKey = true,
+                //IssuerSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(tokenParameters.ClientSecret)),
+                
                 // Validate the JWT Issuer (iss) claim
                 ValidateIssuer = true,
                 ValidIssuer = tokenParameters.ServerRealm,
